@@ -1,0 +1,38 @@
+{
+ "blockTime": 1761177600,
+ "meta": {
+  "err": null,
+  "innerInstructions": []
+ },
+ "transaction": {
+  "signatures": [
+   "M77gRrvfE2W69WBgr6GGPQhKa9SykqPkeEL8SKt94UzgP7hZ2LkPqZuw6s17kjsLRLChqPUojP61yrQu2jc15Gy6"
+  ],
+  "message": {
+   "accountKeys": [
+    "7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5",
+    "BqQ2sVd9Wm4xTb1yHc3nLp6rZk8fJg5uA7eS9tN2vD4m",
+    "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+    "3uW5p8VtJ6YhVh4uWk1oQ1zB1jK9mN2pQ4rS6tU8vW1x"
+   ],
+   "instructions": [
+    {
+     "program": "spl-token",
+     "parsed": {
+      "type": "transferChecked",
+      "info": {
+       "mint": "KOGm3z9tY4QdRu2uKPvxAZo1z8fJcUa9bY6pWq4hN7mS",
+       "source": "BqQ2sVd9Wm4xTb1yHc3nLp6rZk8fJg5uA7eS9tN2vD4m",
+       "destination": "3uW5p8VtJ6YhVh4uWk1oQ1zB1jK9mN2pQ4rS6tU8vW1x",
+       "authority": "7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5",
+       "tokenAmount": {
+        "amount": "250000000",
+        "decimals": 9
+       }
+      }
+     }
+    }
+   ]
+  }
+ }
+}

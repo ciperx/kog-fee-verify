@@ -1,12 +1,16 @@
 {
-  "name": "@ciperx/kog-fee-verify",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "description": "Pure verifier for an x402 fee paid in a Token 2022 mint on Solana",
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/*.test.js"
-  },
-  "devDependencies": { "typescript": "^5.7.0", "@types/node": "^22.10.0" }
+ "name": "kog-fee-verify",
+ "version": "0.1.0",
+ "description": "Pure verifier for an x402 KOG fee on Solana: mint, amount, payee, quote expiry and replay, from a parsed transaction. No RPC, zero dependencies.",
+ "type": "module",
+ "main": "src/verify.ts",
+ "types": "src/verify.ts",
+ "exports": { ".": "./src/verify.ts" },
+ "scripts": {
+  "test": "node --test test/*.test.ts"
+ },
+ "files": ["src", "README.md"],
+ "keywords": ["solana", "x402", "spl-token-2022", "payment-verification", "replay-protection"],
+ "license": "MIT",
+ "engines": { "node": ">=22.6" }
 }

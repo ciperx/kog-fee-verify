@@ -1,48 +1,97 @@
 # kog-fee-verify
 
-A pure verifier for an x402 fee paid in a Token 2022 mint on Solana. The parsed transaction and the
-quote are passed in, so there is no RPC, no clock and no network inside the check: the same input
-always gives the same verdict, which is what makes it testable on recorded fixtures.
+Pure verifier for an x402 fee paid in an SPL Token 2022 mint on Solana.
+The parsed transaction is passed in; the verifier decides whether the fee was
+really paid. No RPC, no network, no clock, no dependencies.
+
+Built for the Kognai LAX seat "KOG fee verification over x402 on Solana".
+
+## Interface
 
 ```ts
-import { verifyKogFee } from "@ciperx/kog-fee-verify";
+import { verifyKogFee } from 'kog-fee-verify';
 
-const { ok, reason } = verifyKogFee({ tx, quote, payee, mint, seen });
+const result = verifyKogFee({
+  tx,                                  // parsed transaction (jsonParsed) or its JSON text
+  quote: { mint, amount, expiresAt },  // amount in base units as a decimal string
+  payee,                               // owner or token account that must be credited
+  seen,                                // Set/array/Map of signatures already accepted
+});
+// -> { ok, code, reason, signature, received, quoted }
 ```
 
-## What is checked, in this order
+`verifyKogFee` returns `ok: true` only when every check passes. A refusal always
+carries a `code` and a `reason` that names the numbers involved.
 
-1. The transaction carries a non empty signature.
-2. The signature is not in `seen` (replay). `seen` is read, never written: the caller records the
-   signature after it accepts the payment.
-3. The quote has an expiry and the transaction has a block time; `blockTime > expiresAt` is
-   `quote expired`. A payment in the same second as the expiry is inside the quote.
-4. The transaction moves the quoted mint to the payee. A transfer to somebody else says so, and a
-   transfer of another mint says `wrong mint`.
-5. The sum of the transfers of that mint to the payee is at least `quote.amount`, an atomic integer
-   string. A short fee reports both numbers.
+| code | meaning |
+| --- | --- |
+| `ok` | fee paid in full, quote live, signature fresh |
+| `malformed` | transaction, signature, payee or quote amount is unusable |
+| `failed` | the transaction failed on chain, nothing was paid |
+| `wrong_mint` | the payee was credited, but in another mint |
+| `wrong_payee` | the mint moved, but not to the quoted payee |
+| `short_fee` | payee received less than the quote, with both amounts in the reason |
+| `expired` | payment landed at or after the quote expiry |
+| `replay` | the signature was already used for a fee |
 
-A transfer is read from `transferChecked` or `transfer` parsed instructions, whether they sit in
-`tx.instructions`, in `transaction.message.instructions` or in `meta.innerInstructions`, so a
-`jsonParsed` transaction straight from `getTransaction` works without reshaping.
+## What is checked
 
-Malformed input answers a reason instead of throwing.
+1. **Form.** The transaction is an object or JSON text, carries a base58
+   signature, and the quote carries a decimal integer amount and a mint.
+2. **Landing.** `meta.err` non-null means the transaction failed on chain, so no
+   fee exists, whatever the balances say.
+3. **Mint.** The credited balance must be in the quoted mint. Base58 addresses are
+   compared as exact strings, never case folded.
+4. **Payee and amount.** Balance deltas (`meta.preTokenBalances` to
+   `meta.postTokenBalances`) are summed for the quoted mint, for entries whose
+   `owner` is the payee or whose token account is the payee. Amounts are bigint
+   base units, so there is no float rounding at 9 or 6 decimals. Overpayment is
+   accepted; underpayment is refused with both numbers.
+5. **Expiry.** `quote.expiresAt` accepts unix seconds, unix milliseconds and ISO
+   8601. The comparison uses the transaction's own `blockTime`, so a verifier
+   replaying old fixtures reaches the same verdict years later. `now` is an
+   optional fallback for transactions without a block time.
+6. **Replay.** The signature is looked up in `seen` and added only on success, so
+   a refused payment does not burn its signature.
 
-## CLI
-
-```sh
-node dist/cli.js --tx fixtures/t22-transfer.json --quote quote.json --payee <address> --mint <mint> [--seen seen.json]
-```
-
-Exit 0 when the fee verifies, 1 when it does not, 2 on wrong usage. It prints the verdict as JSON.
+Fixtures without balance metadata are also supported: a parsed
+`transferChecked` (top level or inner) whose destination is the payee, or whose
+authority is the payee, counts as the credited amount.
 
 ## Tests
 
 ```sh
-npm test
+npm test          # node --test test/*.test.ts
 ```
 
-8 tests over a recorded Token 2022 transfer (`fixtures/t22-transfer.json`, a live `transferChecked`
-of a six decimal mint): the right fee, a short fee, the wrong mint, the wrong payee, an expired
-quote plus the same second edge, a replay with `seen` left untouched, malformed input, and a raw
-`jsonParsed` transaction whose transfer sits in the inner instructions.
+23 tests over nine recorded-transaction fixtures: right fee, exact fee, short
+fee, overpayment, wrong mint, wrong payee, expired quote, live quote, chain
+failure, replay through a Set and through an array, JSON text input, malformed
+inputs, numeric amounts, instruction-only transactions, inner transfers,
+determinism, and a guard that `src/verify.ts` contains no `fetch`, URL,
+`Math.random`, `Date.now` or `console.log`.
+
+Node 22.6 or later runs the TypeScript directly through type stripping; there is
+no build step and no `node_modules`.
+
+## Layout
+
+```
+src/verify.ts            the verifier, one file
+test/verify.test.ts      the 23 tests
+fixtures/*.json          recorded transactions, generated by scripts/make_fixtures2.py
+scripts/make_fixtures2.py  deterministic fixture generator
+```
+
+## Limits
+
+- The caller supplies the parsed transaction. A caller that passes a fabricated
+  object gets a fabricated verdict; anchoring the bytes is the caller's job
+  (`getTransaction` from a node the verifier trusts).
+- Token 2022 transfer fees: the credited amount is read from the balances, so a
+  fee withheld by the mint shows up as a short fee. That is the intended reading.
+- `quote.payee`, when present, is informational; the `payee` argument is
+  authoritative, so one quote cannot be redirected at call time without changing
+  the argument the caller already validated.
+
+MIT.
